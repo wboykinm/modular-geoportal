@@ -7,7 +7,7 @@ Check out the [demo here](http://wboykinm.github.io/modular-geoportal/).
 
 
 Built on Open Source for Open Data
-========
+==========
 
  - [CartoDB.js](http://github.com/CartoDB/cartodb.js)
  - [Mapbox API](http://mapbox.com/developers/api/#versions)
