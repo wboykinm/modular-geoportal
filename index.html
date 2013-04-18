@@ -1,0 +1,221 @@
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <style>
+      html, body {width:100%; height:100%; padding: 0; margin: 0;}
+      #map {width: 100%; /*height:100%;*/ position: absolute; top: 60px; bottom: 0px; background: black; z-index:1;}
+      div.cartodb-popup div.cartodb-popup-content {max-height:none | inherit}
+    </style>
+    <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v2/themes/css/cartodb.css" />
+    <!--[if lte IE 8]>
+    <link rel="stylesheet" href="http://libs.cartocdn.com/cartodb.js/v2/themes/css/cartodb.ie.css" />
+    <![endif]-->
+	<!-- NOTE WE'RE USING A BOOTSWATCH THEME INSTEAD OF BOOTSTRAP STANDARD-->
+    <link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootswatch/2.3.1/journal/bootstrap.min.css" />
+    <link rel="stylesheet" href="css/l.geosearch.mod.css" />
+	
+	<!--HERE YOU CAN CUSTOMIZE THE POPUP INFOWINDOW WITH DATA FROM YOU SOURCE TABLE; VARIABLES IN THE MUSTACHE TAGS-->
+    <script type="infowindow/html" id="infowindow_template">
+      <div class="cartodb-popup">
+         <a href="#close" class="cartodb-popup-close-button close">x</a>
+         <div class="cartodb-popup-content-wrapper">
+           <div class="cartodb-popup-content">
+             <!-- 'content.data.whatever' CONTAINS THE FIELD DATA, THE REST IS HTML -->
+             <h3>{{content.data.name}}</h3><h4 style="color:#222;">{{content.data.newstr}}</h4><hr>
+             <em>Zoning: {{content.data.subdistric}}<br>
+             Height: {{content.data.height}} meters</em><br>
+             <hr>
+			<!--A BUTTON THAT POINTS TOWARD MORE INFO ABOUT THE CLICKED FEATURE. IDEALLY THERE'S A URL THAT
+			CAN BE CONSTRUCTED WITH A KEY VARIABLE FROM THE TABLE, LIKE 'http://city.gov/sheets/{{content.data.key}}.pdf'-->
+             <a type="button" class="btn" href="http://www.burlingtonvt.gov/PropertyDetails.aspx?a=6998" target="_blank"><i class="icon-download"></i> Go to fact sheet</a>           
+           </div>
+         </div>
+         <div class="cartodb-popup-tip-container"></div>
+      </div>
+    </script>
+  </head>
+  <body onload="init()">
+    <!--ADD THE MAP ELEMENT-->
+    <div id='map'></div>
+    <!--SOME BOOTSTRAP NAV BOILERPLATE TO MAKE THINGS SIMPLE AND APPEALING-->
+    <div class="navbar navbar-inverse navbar-fixed-top">
+      <div class="navbar-inner">
+        <div class="container">
+          <a class="brand">Burlington VT - Buildings & Zoning</a>
+          <ul class="nav pull-right">
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" data-toggle="dropdown"><small><i class="icon-download icon-white"></i> Download buildings in this view<b class="caret"></b></small></a>
+			  <!--THESE MENU ITEMS TRIGGER FORMAT-SPECIFIC DATA DOWNLOADS - MORE BELOW-->
+              <ul class="dropdown-menu">
+                <li><a id="downkml" href="#" target="_blank">KML</a></li>
+                <li><a id="downshp" href="#">Shapefile</a></li>
+                <li><a id="downgeojson" href="#">GeoJSON</a></li>
+                <li><a id="downtopojson" href="#">TopoJSON</a></li>
+              </ul>
+            </li>
+			<!--TRIGGERS A MODAL WINDOW WITH ALL YOUR EXPLANATORY INFORMATION; NICE TO HAVE HIDDEN MOST OF THE TIME-->
+            <li><a href="#myModal" role="button" class="pull-right" data-toggle="modal"><small>About</small></a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="container-narrow">
+	<!--MODAL POPUP CONTENT-->
+    <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3 id="myModalLabel">About</h3>
+      </div>
+      <div class="modal-body">
+        <p>This page is a demonstration of a theme-specific, easily-replicated public portal for open geodata. More details on the project are <a href="http://geosprocket.blogspot.com/2013/04/toward-ideal-geoportal.html" target="_blank">available here.</a></p>
+        <hr>
+		<!--HACKTASTIC CATEGORICAL LEGEND-->
+        <p><strong>Zoning Categories</strong></p>
+        <ul class="unstyled">
+          <li><a style='background:#f6e03f;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</a>&nbsp;Enterprise</li>
+          <li><a style='background:#adbd06;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</a>&nbsp;Institutional</li>
+          <li><a style='background:#cfc8a2;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</a>&nbsp;Mixed Use</li>
+          <li><a style='background:#f6f7bd;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</a>&nbsp;Registered Community Organizations</li>
+          <li><a style='background:#895793;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</a>&nbsp;Residential</li>
+          <li><a style='background:#de3f33;'>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</a>&nbsp;Urban Reserve</li>
+        </ul>
+        <p><small>Buildings and zoning data provided by <a href="http://burlingtonvt.gov/" target="_blank">the City of Burlington</a> and <a href="http://www.openstreetmap.org/?lat=44.48026&lon=-73.21476&zoom=15&layers=M" target="_blank">Openstreetmap Contributors</a></small></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+      </div>
+    </div>
+  </body>
+  <script>
+    //GEOCODER PARAMETERS
+    
+    function getURLParameter(name) {
+       return decodeURI(
+       (RegExp(name + '=' + '(.+?)(&|$)').exec(location.search) || [, ])[1]);
+    }
+    
+    var regionParameter = getURLParameter('region');
+    var region = (regionParameter === 'undefined') ? '' : regionParameter;
+    
+      //WRAP THE MAP ACTION 
+    var map;
+    
+    function init() {
+    // INITIATE LEAFLET MAP    
+    map = new L.Map('map', {
+      center: [44.4795, -73.2070],
+      zoom: 16,
+      minZoom: 12,
+      maxZoom: 18
+    });
+    
+    //GEOCODER CONTROLS
+       new L.Control.GeoSearch({
+           provider: new L.GeoSearch.Provider.Google({
+               region: region
+           })
+       }).addTo(map);
+       
+    //CALL SOME COMPELLING MAPBOX TILES AS A BASE    
+    L.tileLayer('http://a.tiles.mapbox.com/v3/landplanner.map-b31zy3ud/{z}/{x}/{y}.png', {
+      attribution: '<a href="http://mapbox.com/about/maps/" target="_blank">w/ Mapbox</a>'
+    }).addTo(map);
+    
+    //DEFINE A REFERENCE OVERLAY TO PLACE ON TOP OF THE BUILDINGS:
+    var reference = L.tileLayer('http://a.tiles.mapbox.com/v3/landplanner.map-50ghoxbt/{z}/{x}/{y}.png');
+    
+    //GIVE CARTODB THE PARAMETERS OF YOUR TABLE BY VIZ.JSON - 
+    
+    var layerUrl = 'http://geosprocket.cartodb.com/api/v1/viz/btv_prints_041513f/viz.json';
+    var layerOptions = {
+	  //SELECT EVERYTHING, BUT ORDER BY LATITUDE SO THE 3D BUILDINGS DON'T OVERLAP EACH OTHER
+      query: "SELECT * FROM {{table_name}} order by st_ymax(the_geom) desc",
+	  //THROW IN SOME CARTOCSS AT "TILE_STYLE" TO TIE THE RENDERED BUILDING HEIGHT TO A DATA FIELD
+      //NOTE THIS IS DONE WITH COMPRESSED CARTOCSS; CHECK OUT THE REFERENCE FOR MORE INFO:
+	  //http://mapbox.com/tilemill/docs/manual/carto/
+      tile_style: "Map{buffer-size:512;}#{{table_name}}{[zoom<=16]{line-color: #FFF;line-opacity: 0.5;line-width: 0.3;polygon-opacity: 0.8;[type='Enterprise']{polygon-fill:#f6e03f;}[type='Institutional']{polygon-fill:#adbd06;}[type='Mixed Use']{polygon-fill:#cfc8a2;}[type='RCO']{polygon-fill:#f6f7bd;}[type='Residential']{polygon-fill:#895793;}[type='Urban Reserve']{polygon-fill:#de3f33;}}[zoom>16]{building-height:[height]*1.5;building-fill-opacity:0.8;text-name:[name];text-face-name:'DejaVu Serif Bold';text-size: 10;text-wrap-width:12;text-fill:#222;text-allow-overlap:true;text-halo-fill:rgba(255,255,255,0.7);text-halo-radius:1;text-dy:-10;[type='Enterprise']{building-fill:#f6e03f;}[type='Institutional']{building-fill:#adbd06;}[type='Mixed Use']{building-fill:#cfc8a2;}[type='RCO']{building-fill:#f6f7bd;}[type='Residential']{building-fill:#895793;}[type='Urban Reserve']{building-fill:#de3f33;}}}"
+       }
+    //TACK THE LAYER ON TOP OF THE BASE TILES
+    cartodb.createLayer(map, layerUrl, layerOptions)
+      .on('done', function (layer) {
+      map.addLayer(layer);
+	  //ADD THE REFERENCE OVERLAY ABOVE THE THEMATIC LAYER
+      map.addLayer(reference);
+      layer.infowindow.set('template', $('#infowindow_template').html());
+    
+    }).on('error', function () {
+      //LOG THE ERROR
+    });
+    
+    //REMOVE THE REFERENCE OVERLAY IF THE BUILDINGS ARE 3D (WHEN ZOOM GOES PAST 16)
+    map.on('moveend', function () {
+          if (map.getZoom() > 16 && map.hasLayer(reference)) {
+              map.removeLayer(reference);
+          }
+          if (map.getZoom() <= 16 && map.hasLayer(reference) == false) {
+              map.addLayer(reference);
+          }
+      });
+    
+    var hash = new L.Hash(map);
+    
+    //SOME JQUERY GRABS THE CURRENT BOUNDING BOX, PASSES IT TO THE CARTODB SQL API,
+	//WHICH PACKAGES UP TO 2000 BUILDING FEATURE RECORDS IN THE GIVEN FORMAT AND
+	//SENDS IT BACK TO THE BROWSER FOR DOWNLOAD. WICKED FAST.
+    
+    //KML FORMAT,            
+    $('#downkml').click(function () {
+      var nwlat = map.getBounds().getNorthWest().lat,
+        nwlon = map.getBounds().getNorthWest().lng,
+        selat = map.getBounds().getSouthEast().lat,
+        selon = map.getBounds().getSouthEast().lng;
+      //NOTE THAT THIS IS AN ENCODED SQL STRING IN A URL. BEST THING EVER.
+      var new_sql = "http://geosprocket.cartodb.com/api/v2/sql?q=SELECT%20*%20FROM%20btv_prints_041513f%20WHERE%20the_geom%20%26%26%20ST_SetSRID(ST_MakeBox2D(ST_Point(" + nwlon + "%2C%20" + nwlat + ")%2C%20ST_Point(" + selon + "%2C%20" + selat + "))%2C4326)%20ORDER%20BY%20height%20DESC%20LIMIT%202000&format=kml";
+    
+      $(this).attr("href", new_sql);
+    });
+    
+    //SHAPEFILE FORMAT,           
+    $('#downshp').click(function () {
+      var nwlat = map.getBounds().getNorthWest().lat,
+        nwlon = map.getBounds().getNorthWest().lng,
+        selat = map.getBounds().getSouthEast().lat,
+        selon = map.getBounds().getSouthEast().lng;
+    
+      var new_sql = "http://geosprocket.cartodb.com/api/v2/sql?q=SELECT%20*%20FROM%20btv_prints_041513f%20WHERE%20the_geom%20%26%26%20ST_SetSRID(ST_MakeBox2D(ST_Point(" + nwlon + "%2C%20" + nwlat + ")%2C%20ST_Point(" + selon + "%2C%20" + selat + "))%2C4326)%20ORDER%20BY%20height%20DESC%20LIMIT%202000&format=shp";
+    
+      $(this).attr("href", new_sql);
+    });
+    
+    //GEOJSON FORMAT,           
+    $('#downgeojson').click(function () {
+      var nwlat = map.getBounds().getNorthWest().lat,
+        nwlon = map.getBounds().getNorthWest().lng,
+        selat = map.getBounds().getSouthEast().lat,
+        selon = map.getBounds().getSouthEast().lng;
+    
+      var new_sql = "http://geosprocket.cartodb.com/api/v2/sql?q=SELECT%20*%20FROM%20btv_prints_041513f%20WHERE%20the_geom%20%26%26%20ST_SetSRID(ST_MakeBox2D(ST_Point(" + nwlon + "%2C%20" + nwlat + ")%2C%20ST_Point(" + selon + "%2C%20" + selat + "))%2C4326)%20ORDER%20BY%20height%20DESC%20LIMIT%202000&format=geojson";
+    
+      $(this).attr("href", new_sql);
+    });
+    
+      //AND TOPOJSON FORMAT (FOR THE EDGY DATAVIZ TYPES)           
+    $('#downtopojson').click(function () {
+      var nwlat = map.getBounds().getNorthWest().lat,
+        nwlon = map.getBounds().getNorthWest().lng,
+        selat = map.getBounds().getSouthEast().lat,
+        selon = map.getBounds().getSouthEast().lng;
+    
+      var new_sql = "http://geosprocket.cartodb.com/api/v2/sql?q=SELECT%20*%20FROM%20btv_prints_041513f%20WHERE%20the_geom%20%26%26%20ST_SetSRID(ST_MakeBox2D(ST_Point(" + nwlon + "%2C%20" + nwlat + ")%2C%20ST_Point(" + selon + "%2C%20" + selat + "))%2C4326)%20ORDER%20BY%20height%20DESC%20LIMIT%202000&format=topojson";
+    
+      $(this).attr("href", new_sql);
+    });
+    
+    }
+  </script>
+  <!--libraries kept to a minimum. Bootstrap could be used a la carte here, but I'm being lazy-->
+  <script src="http://libs.cartocdn.com/cartodb.js/v2/cartodb.js"></script>
+  <script src="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.3.1/js/bootstrap.min.js"></script>
+  <script src="js/leaflet-hash.js"></script>
+  <script src="js/l.geosearch.mod.js"></script>
+</html>
