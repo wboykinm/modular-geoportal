@@ -22,8 +22,16 @@
            <div class="cartodb-popup-content">
              <!-- 'content.data.whatever' CONTAINS THE FIELD DATA, THE REST IS HTML -->
              <h3>{{content.data.name}}</h3><h4 style="color:#222;">{{content.data.newstr}}</h4><hr>
-             <em>Zoning: {{content.data.subdistric}}<br>
-             Height: {{content.data.height}} meters</em><br>
+             <table class="table table-condensed">
+			   <tr>
+			     <td><strong>Zone</strong></td>
+				 <td><i>{{content.data.subdistric}}</i></td>
+			   </tr>
+			   <tr>
+			     <td><strong>Height</strong></td>
+				 <td>{{content.data.height}} meters</td>
+			   </tr>
+			 </table>
              <hr>
 			<!--A BUTTON THAT POINTS TOWARD MORE INFO ABOUT THE CLICKED FEATURE. IDEALLY THERE'S A URL THAT
 			CAN BE CONSTRUCTED WITH A KEY VARIABLE FROM THE TABLE, LIKE 'http://city.gov/sheets/{{content.data.key}}.pdf'-->
