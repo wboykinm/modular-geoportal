@@ -71,7 +71,7 @@
 	<!--MODAL POPUP CONTENT-->
     <div id="myModal" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true">
       <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">Ã—</button>
         <h3 id="myModalLabel">About</h3>
       </div>
       <div class="modal-body">
@@ -134,7 +134,7 @@
     
     //GIVE CARTODB THE PARAMETERS OF YOUR TABLE BY VIZ.JSON - 
     
-    var layerUrl = 'http://geosprocket.cartodb.com/api/v1/viz/btv_prints_041513f/viz.json';
+    var layerUrl = 'https://geosprocket.cartodb.com/api/v2/viz/aebb2386-fefc-11e4-a09c-0e0c41326911/viz.json';
     var layerOptions = {
 	  //SELECT EVERYTHING, BUT ORDER BY LATITUDE SO THE 3D BUILDINGS DON'T OVERLAP EACH OTHER
       query: "SELECT * FROM {{table_name}} order by st_ymax(the_geom) desc",
